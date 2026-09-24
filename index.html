@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Arcade - Web Browser Emulator</title>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --accent-color: #6366f1;
+            --accent-hover: #4f46e5;
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            padding: 2rem 1rem;
+            background: linear-gradient(180deg, #1a1a2e 0%, var(--bg-color) 100%);
+        }
+
+        header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2.5rem;
+            letter-spacing: 1px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2e2e38;
+            transition: transform 0.2s, border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-color);
+        }
+
+        .card h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.4rem;
+            color: #fff;
+        }
+
+        .card .generation {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+
+        .file-input-wrapper {
+            margin-bottom: 1rem;
+        }
+
+        .file-input-wrapper label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .file-input {
+            width: 100%;
+            box-sizing: border-box;
+            background: #121214;
+            border: 1px solid #3e3e4a;
+            padding: 0.5rem;
+            border-radius: 6px;
+            color: var(--text-color);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .launch-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            text-align: center;
+        }
+
+        .launch-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .launch-btn:disabled {
+            background-color: #3e3e4a;
+            color: #71717a;
+            cursor: not-allowed;
+        }
+
+        /* Fullscreen Emulator Layout */
+        #emulator-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            z-index: 9999;
+        }
+
+        #emulator-frame {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #game {
+            width: 100%;
+            height: 100%;
+        }
+
+        #exit-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(239, 68, 68, 0.85);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            transition: background-color 0.2s;
+        }
+
+        #exit-btn:hover {
+            background: rgba(220, 38, 38, 1);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Retro Arcade</h1>
+        <p>Select a system, upload your local ROM file, and play directly in your web browser.</p>
+    </header>
+
+    <div class="container">
+        <div class="grid" id="systems-grid">
+            <!-- Systems inject dynamically via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Active Window Layer for Emulation -->
+    <div id="emulator-container">
+        <button id="exit-btn" onclick="closeEmulator()">Exit Emulator</button>
+        <div id="emulator-frame">
+            <div id="game"></div>
+        </div>
+    </div>
+
+    <script>
+        const systems = [
+            { id: 'atari2600', name: 'Atari 2600', gen: '2nd Generation', ext: ['.bin', '.a26'] },
+            { id: 'nes', name: 'Nintendo (NES)', gen: '3rd Generation', ext: ['.nes'] },
+            { id: 'segaMS', name: 'Sega Master System', gen: '3rd Generation', ext: ['.sms'] },
+            { id: 'snes', name: 'Super Nintendo (SNES)', gen: '4th Generation', ext: ['.smc', '.sfc'] },
+            { id: 'segaMD', name: 'Sega Genesis / Mega Drive', gen: '4th Generation', ext: ['.md', '.bin', '.smd'] },
+            { id: 'gbc', name: 'Game Boy Color', gen: '4th Generation', ext: ['.gbc', '.gb'] },
+            { id: 'n64', name: 'Nintendo 64 (N64)', gen: '5th Generation', ext: ['.z64', '.n64', '.v64'] },
+            { id: 'gba', name: 'Game Boy Advance', gen: '6th Generation', ext: ['.gba'] },
+            { id: 'psx', name: 'PlayStation 1 (PS1)', gen: '5th Generation', ext: ['.bin', '.cue', '.iso', '.chd'] },
+            { id: 'dreamcast', name: 'Sega Dreamcast', gen: '6th Generation', ext: ['.gdi', '.cdi', '.chd'] }
+            { id: 'ps2', name: 'PlayStation 2 (PS2)', gen: '6th Generation', ext: ['.iso', '.bin', '.chd'] }
+
+        ];
+
+        const loadedRoms = {};
+        let currentRomUrl = null;
+
+        function initDashboard() {
+            const grid = document.getElementById('systems-grid');
+            
+            systems.forEach(sys => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                card.innerHTML = `
+                    <div>
+                        <h3>${sys.name}</h3>
+                        <div class="generation">${sys.gen}</div>
+                        <div class="file-input-wrapper">
+                            <label>Supported: ${sys.ext.join(', ')}</label>
+                            <input type="file" class="file-input" accept="${sys.ext.join(',')}" onchange="handleFileSelect(event, '${sys.id}')">
+                        </div>
+                    </div>
+                    <button id="btn-${sys.id}" class="launch-btn" disabled onclick="bootEmulator('${sys.id}')">Launch Emulator</button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function handleFileSelect(event, systemId) {
+            const file = event.target.files[0];
+            const launchBtn = document.getElementById(`btn-${systemId}`);
+            
+            if (file) {
+                loadedRoms[systemId] = file;
+                launchBtn.disabled = false;
+            } else {
+                delete loadedRoms[systemId];
+                launchBtn.disabled = true;
+            }
+        }
+
+        function bootEmulator(systemId) {
+            const file = loadedRoms[systemId];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const romBlob = new Blob([e.target.result]);
+                currentRomUrl = URL.createObjectURL(romBlob);
+
+                document.getElementById('emulator-container').style.display = 'block';
+                document.body.style.overflow = 'hidden';
+
+                // Ensure player container container is fresh
+                document.getElementById('game').innerHTML = '';
+
+                // Explicitly bind required configs to global window object
+                window.EJS_player = '#game';
+                window.EJS_core = systemId;
+                window.EJS_gameUrl = currentRomUrl;
+                window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+                window.EJS_startOnLoaded = true;
+
+                // Inject the loader script into the document dynamically
+                const script = document.createElement('script');
+                script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+                script.id = 'emulator-core-script';
+                document.body.appendChild(script);
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function closeEmulator() {
+            document.getElementById('emulator-container').style.display = 'none';
+            document.body.style.overflow = 'auto';
+
+            // Use official EmulatorJS lifecycle exit cleanup patterns
+            if (window.EJS_emulator && typeof window.EJS_emulator.exit === 'function') {
+                window.EJS_emulator.exit();
+            }
+
+            const script = document.getElementById('emulator-core-script');
+            if (script) script.remove();
+
+            const gameContainer = document.getElementById('game');
+            if (gameContainer) gameContainer.innerHTML = '';
+
+            if (currentRomUrl) {
+                URL.revokeObjectURL(currentRomUrl);
+                currentRomUrl = null;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>
